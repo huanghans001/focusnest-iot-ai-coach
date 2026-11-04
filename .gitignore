@@ -1,0 +1,9 @@
+# Rahasia & lingkungan lokal
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Log hasil rekaman
+data/
+*.log

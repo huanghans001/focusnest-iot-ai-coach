@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FocusNest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Palet "meja belajar": kertas dingin, tinta, dan satu cahaya lampu */
+  :root {
+    --paper: #e9eef2; --ink: #17212b; --mute: #5b6b79; --line: #c5d0d9;
+    --focus: #17806d; --lamp: #d98e04; --alarm: #c23b2e; --idle: #7d8b97;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper: #12191f; --ink: #e8eef2; --mute: #93a3b0; --line: #2b3945; --focus: #3fb8a1; --lamp: #f0b23a; --alarm: #ee6a5b; --idle: #7d8b97; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--body); }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 20px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font: 700 28px/1 var(--display); letter-spacing: -0.01em; }
+  h2 { margin: 0 0 10px; font: 500 18px/1.2 var(--display); }
+  .conn { display: flex; align-items: center; gap: 8px; color: var(--mute); font-size: 14px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--idle); display: inline-block; }
+  .dot.on { background: var(--focus); }
+  form.setup { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 6px; min-width: 0; }
+  input.wide { flex: 1 1 280px; }
+  button { font: 500 15px var(--body); padding: 9px 16px; border-radius: 6px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 380px 1fr; gap: 48px; } }
+  /* Satu elemen berani: busur skor fokus seperti lampu meja */
+  .gauge { width: 100%; max-width: 360px; display: block; }
+  .gauge .track { stroke: var(--line); }
+  .gauge .fill { stroke: var(--idle); transition: stroke-dashoffset .6s ease, stroke .3s; }
+  .gauge text.num { font: 700 64px var(--display); fill: var(--ink); }
+  .gauge text.sub { font: 400 14px var(--body); fill: var(--mute); }
+  .state { font: 700 30px/1.1 var(--display); margin: 8px 0 4px; }
+  .reason { color: var(--mute); margin: 0 0 16px; min-height: 3em; }
+  .actions { display: flex; gap: 8px; margin-bottom: 20px; }
+  dl.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; padding-top: 14px; border-top: 1px solid var(--line); }
+  dl.stats dt { color: var(--mute); font-size: 13px; }
+  dl.stats dd { margin: 0; font: 700 24px var(--display); }
+  section { padding-bottom: 22px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+  section:last-child { border-bottom: 0; }
+  .row { display: grid; grid-template-columns: 110px 1fr 44px; align-items: center; gap: 12px; padding: 5px 0; }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--focus); transition: width .5s; }
+  .row b { text-align: right; font-variant-numeric: tabular-nums; }
+  .edge { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; padding: 8px 0; }
+  .edge h3 { grid-column: 1 / -1; margin: 0; font: 500 16px var(--body); display: flex; align-items: center; gap: 8px; }
+  .edge span { color: var(--mute); font-size: 14px; }
+  .edge strong { font-variant-numeric: tabular-nums; }
+  canvas { width: 100%; height: 90px; display: block; }
+  .chartlabel { display: flex; justify-content: space-between; color: var(--mute); font-size: 13px; margin: 8px 0 2px; }
+  ul.log { list-style: none; margin: 0; padding: 0; max-height: 190px; overflow: auto; }
+  ul.log li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  ul.log time { color: var(--mute); margin-right: 8px; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--mute); }
+  /* Kartu AI Coach: tepi kiri warna lampu, selaras dengan palet yang ada */
+  .coach { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--line); border-left: 4px solid var(--lamp); border-radius: 6px; }
+  .coach-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .coach-head h2 { margin: 0; }
+  .badge { font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--lamp); color: var(--lamp); }
+  .coach-text { margin: 0 0 10px; white-space: pre-line; }
+  .coach-text.wait { color: var(--mute); }
+  .coach-sum { margin: 0; color: var(--mute); font-size: 13px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>FocusNest</h1>
+    <div class="conn"><span class="dot" id="connDot"></span><span id="connText">Belum terhubung</span></div>
+  </header>
+
+  <form class="setup" id="setup">
+    <input class="wide" id="project" placeholder="PROJECT_ID (sama dengan file .env)" aria-label="PROJECT_ID" required>
+    <input class="wide" id="broker" value="wss://broker.hivemq.com:8884/mqtt" aria-label="Alamat broker WebSocket">
+    <button type="submit">Hubungkan</button>
+  </form>
+
+  <div class="grid">
+    <div>
+      <svg class="gauge" viewBox="0 0 240 150" role="img" aria-label="Skor fokus">
+        <path class="track" d="M 20 130 A 100 100 0 0 1 220 130" fill="none" stroke-width="16" stroke-linecap="round"/>
+        <path class="fill" id="arc" d="M 20 130 A 100 100 0 0 1 220 130" fill="none" stroke-width="16" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
+        <text class="num" id="score" x="120" y="112" text-anchor="middle">--</text>
+        <text class="sub" x="120" y="140" text-anchor="middle">skor fokus dari 100</text>
+      </svg>
+      <div class="state" id="state">Menunggu koneksi</div>
+      <p class="reason" id="reason">Isi PROJECT_ID lalu tekan Hubungkan.</p>
+      <div class="actions">
+        <button id="btnStart" type="button">Mulai sesi</button>
+        <button id="btnStop" type="button" class="ghost">Akhiri sesi</button>
+      </div>
+      <dl class="stats">
+        <div><dt>Lama sesi</dt><dd id="sElapsed">0:00</dd></div>
+        <div><dt>Waktu fokus</dt><dd id="sFocus">0:00</dd></div>
+        <div><dt>Gangguan</dt><dd id="sDist">0</dd></div>
+      </dl>
+      <div class="coach" id="coach" hidden aria-live="polite">
+        <div class="coach-head"><h2>AI Coach</h2><span class="badge" id="coachBadge" hidden></span></div>
+        <p class="coach-text" id="coachText"></p>
+        <p class="coach-sum" id="coachSum"></p>
+      </div>
+    </div>
+
+    <div>
+      <section>
+        <h2>Skor per sensor</h2>
+        <div class="row"><span>Suara</span><div class="bar"><i id="b_noise"></i></div><b id="v_noise">--</b></div>
+        <div class="row"><span>Cahaya</span><div class="bar"><i id="b_light"></i></div><b id="v_light">--</b></div>
+        <div class="row"><span>Gerak HP</span><div class="bar"><i id="b_phone"></i></div><b id="v_phone">--</b></div>
+        <div class="row"><span>Aktivitas laptop</span><div class="bar"><i id="b_activity"></i></div><b id="v_activity">--</b></div>
+      </section>
+
+      <section>
+        <h2>Perangkat edge</h2>
+        <div class="edge">
+          <h3><span class="dot" id="d_edge1"></span>Edge 1: HP (Termux)</h3>
+          <span>Getaran RMS <strong id="e1rms">--</strong></span><span>Posisi HP <strong id="e1ori">--</strong></span>
+          <span>Cahaya <strong id="e1lux">--</strong></span><span>Data terakhir <strong id="e1age">--</strong></span>
+        </div>
+        <div class="edge">
+          <h3><span class="dot" id="d_edge2"></span>Edge 2: Laptop</h3>
+          <span>Suara <strong id="e2noise">--</strong></span><span>Ketukan per menit <strong id="e2kpm">--</strong></span>
+          <span>Gerakan mouse <strong id="e2mouse">--</strong></span><span>Data terakhir <strong id="e2age">--</strong></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Grafik</h2>
+        <div class="chartlabel"><span>Skor fokus (garis putus = 70)</span></div><canvas id="cScore"></canvas>
+        <div class="chartlabel"><span>Getaran HP, m/s² (garis putus = ambang gerak)</span></div><canvas id="cMotion"></canvas>
+        <div class="chartlabel"><span>Suara laptop, dBFS</span></div><canvas id="cNoise"></canvas>
+      </section>
+
+      <section>
+        <h2>Peringatan yang dikirim ke HP</h2>
+        <ul class="log" id="log"><li class="empty">Belum ada peringatan.</li></ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const STATES = {  // teks dan warna tiap status dari detector
+  IDLE: ["Siap dimulai", "--idle"], WAITING: ["Menunggu perangkat", "--idle"],
+  FOCUS: ["Fokus", "--focus"], FAIR: ["Cukup fokus", "--lamp"], DISTRACTED: ["Terganggu", "--alarm"],
+  PHONE_DISTRACTION: ["HP diangkat", "--alarm"], NOISE_SPIKE: ["Berisik mendadak", "--alarm"], TOO_DARK: ["Terlalu gelap", "--lamp"],
+};
+const MOVE_THRESHOLD = 0.7;  // sama dengan MOVE_RMS_THRESHOLD di .env
+const hist = { score: [], motion: [], noise: [] };  // riwayat 90 titik terakhir
+const lastSeen = { edge1: 0, edge2: 0 };  // waktu telemetri terakhir (ms)
+let client = null, root = "", sessionActive = false, coachTimer = null;  // sessionActive: dari status terakhir
+
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function push(key, value) { hist[key].push(value); if (hist[key].length > 90) hist[key].shift(); }
+
+function drawLine(canvas, data, min, max, color, ref) {  // gambar grafik garis sederhana
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const g = canvas.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, w, h);
+  const y = (v) => h - 4 - ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * (h - 8);
+  g.strokeStyle = cssVar("--line"); g.lineWidth = 1; g.strokeRect(0.5, 0.5, w - 1, h - 1);
+  if (ref !== undefined) { g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, y(ref)); g.lineTo(w, y(ref)); g.stroke(); g.setLineDash([]); }
+  if (data.length < 2) return;
+  g.strokeStyle = color; g.lineWidth = 2; g.beginPath();
+  data.forEach((v, i) => { const x = (i / 89) * w; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
+  g.stroke();
+}
+function redraw() {
+  drawLine($("cScore"), hist.score, 0, 100, cssVar("--focus"), 70);
+  drawLine($("cMotion"), hist.motion, 0, 3, cssVar("--alarm"), MOVE_THRESHOLD);
+  drawLine($("cNoise"), hist.noise, -80, 0, cssVar("--lamp"));
+}
+
+function showStatus(s) {
+  const [label, colorVar] = STATES[s.state] || [s.state, "--idle"];
+  const color = cssVar(colorVar);
+  $("state").textContent = label; $("state").style.color = color;
+  $("reason").textContent = s.reason || "";
+  $("score").textContent = s.focus_score == null ? "--" : Math.round(s.focus_score);
+  $("arc").style.stroke = color;
+  $("arc").style.strokeDashoffset = 314.16 * (1 - (s.focus_score || 0) / 100);
+  for (const k of ["noise", "light", "phone", "activity"]) {
+    const v = s.scores ? s.scores[k] : null;
+    $("b_" + k).style.width = (v == null ? 0 : v) + "%";
+    $("v_" + k).textContent = v == null ? "--" : Math.round(v);
+  }
+  sessionActive = !!s.session.active;
+  $("sElapsed").textContent = mmss(s.session.elapsed_s); $("sFocus").textContent = mmss(s.session.focus_s); $("sDist").textContent = s.session.distractions;
+  if (s.focus_score != null) push("score", s.focus_score);
+  redraw();
+}
+
+function coachWaiting() {  // tampilkan "Menyusun saran..." sampai pesan coach datang
+  $("coach").hidden = false; $("coachBadge").hidden = true; $("coachSum").textContent = "";
+  $("coachText").textContent = "Menyusun saran..."; $("coachText").className = "coach-text wait";
+  clearTimeout(coachTimer);
+  coachTimer = setTimeout(() => { $("coachText").textContent = "Saran belum diterima. Coba akhiri sesi lagi."; }, 60000);  // jangan menunggu selamanya
+}
+
+const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
+
+function showCoach(c) {  // semua teks lewat textContent (anti-XSS), tidak ada innerHTML
+  clearTimeout(coachTimer);
+  if (!c || typeof c.text !== "string") return;
+  $("coach").hidden = false;
+  $("coachText").textContent = c.text.slice(0, 1500); $("coachText").className = "coach-text";
+  $("coachBadge").textContent = c.source === "llm" ? "AI" : "Aturan"; $("coachBadge").hidden = false;
+  const s = c.summary || {}, parts = [];
+  if (num(s.duration_s) != null) parts.push("Durasi " + mmss(s.duration_s));
+  if (num(s.focus_pct) != null) parts.push("Fokus " + Math.round(s.focus_pct) + "%");
+  if (num(s.min_score) != null) parts.push("Skor terendah " + Math.round(s.min_score));
+  const counts = s.event_counts && typeof s.event_counts === "object" ? s.event_counts : {};
+  for (const k of ["PHONE_DISTRACTION", "NOISE_SPIKE", "TOO_DARK"]) if (num(counts[k])) parts.push(STATES[k][0] + " ×" + counts[k]);
+  $("coachSum").textContent = parts.join(" · ");
+}
+
+function showTelemetry(device, d) {
+  lastSeen[device] = Date.now();
+  if (device === "edge1") {
+    $("e1rms").textContent = d.motion_rms.toFixed(2); push("motion", d.motion_rms);
+    $("e1ori").textContent = { face_down: "telungkup", face_up: "telentang", tilted: "miring" }[d.orientation] || d.orientation;
+    $("e1lux").textContent = d.lux == null ? "tertutup" : Math.round(d.lux) + " lux";
+  } else {
+    $("e2noise").textContent = d.noise_dbfs.toFixed(1) + " dB"; push("noise", d.noise_dbfs);
+    $("e2kpm").textContent = Math.round(d.keys_per_min); $("e2mouse").textContent = d.mouse_moves;
+  }
+}
+
+function addAlert(a) {
+  const log = $("log"); if (log.querySelector(".empty")) log.innerHTML = "";
+  const li = document.createElement("li"), t = document.createElement("time");
+  t.textContent = new Date(a.sent_at_ms || Date.now()).toLocaleTimeString("id-ID");
+  li.append(t, document.createTextNode(a.message)); log.prepend(li);
+}
+
+function connect(project, url) {
+  if (client) client.end(true);
+  root = `focusnest/${project}`; localStorage.setItem("fn_project", project);
+  $("connText").textContent = "Menghubungkan..."; $("connDot").className = "dot";
+  client = mqtt.connect(url, { clientId: "focusnest-web-" + Math.random().toString(16).slice(2, 8), reconnectPeriod: 2000 });
+  client.on("connect", () => { $("connText").textContent = "Terhubung ke broker"; $("connDot").className = "dot on"; client.subscribe(root + "/#", { qos: 1 }); $("setup").hidden = true; });
+  client.on("close", () => { $("connText").textContent = "Terputus, mencoba lagi..."; $("connDot").className = "dot"; });
+  client.on("message", (topic, payload) => {
+    const sub = topic.slice(root.length + 1), text = payload.toString();
+    let m = sub.match(/^edge\/(edge\d)\/online$/);
+    if (m) { $("d_" + m[1]).className = "dot" + (text === "1" ? " on" : ""); return; }
+    let data; try { data = JSON.parse(text); } catch { return; }
+    if (sub === "status") showStatus(data);
+    else if (sub === "alerts") addAlert(data);
+    else if (sub === "coach") showCoach(data);  // sudah tercakup subscribe root + "/#"
+    else if ((m = sub.match(/^edge\/(edge\d)\/telemetry$/))) showTelemetry(m[1], data);
+  });
+}
+
+function send(action) { if (client && client.connected) client.publish(root + "/cmd", JSON.stringify({ action }), { qos: 1 }); }
+$("btnStart").onclick = () => { clearTimeout(coachTimer); $("coach").hidden = true; send("start"); };  // sesi baru: saran lama disembunyikan
+$("btnStop").onclick = () => { if (sessionActive) coachWaiting(); send("stop"); };  // menunggu saran hanya bila sesi memang berjalan
+$("setup").onsubmit = (e) => { e.preventDefault(); connect($("project").value.trim(), $("broker").value.trim()); };
+$("connText").onclick = () => { $("setup").hidden = false; };
+
+setInterval(() => {  // perbarui "x detik lalu" tiap detik
+  for (const [dev, key] of [["edge1", "e1age"], ["edge2", "e2age"]]) {
+    $(key).textContent = lastSeen[dev] ? Math.round((Date.now() - lastSeen[dev]) / 1000) + " detik lalu" : "--";
+  }
+}, 1000);
+window.addEventListener("resize", redraw);
+
+const preset = new URLSearchParams(location.search).get("project") || localStorage.getItem("fn_project") || "";
+$("project").value = preset;
+if (preset) connect(preset, $("broker").value);
+</script>
+</body>
+</html>
